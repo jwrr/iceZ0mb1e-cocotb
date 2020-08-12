@@ -20,8 +20,9 @@ class SPIMonitor(Monitor):
     #    2    1    1    drive on rising  sample on falling; sclk=1 when idle
     #    3    1    0    drive on falling sample on rising;  sclk=1 when idle
 
-    def __init__(self, name, sclk, cs_n, sdi, sdo, size = 8, lsb_first = False, mode = 0, callback=None, event=None):
+    def __init__(self, name, dut, sclk, cs_n, sdi, sdo, size = 8, lsb_first = False, mode = 0, callback=None, event=None):
         self.name = name
+        self.dut = dut
         self.size = size
         self.lsb_first = lsb_first
         self.mode = mode
@@ -69,5 +70,35 @@ class SPIMonitor(Monitor):
             self._recv(spi_val)
 
 
+    async def start_fake_scoreboard(self, expect_list):
+        self.enable_scoreboard = True
+        self.expect_list = expect_list
+        log = self.dut._log
+        i = 0
+        spi_val = "{:08b}".format(0)
+        while self.enable_scoreboard:
+            spi_val = await self.rcv_value(spi_val)
+            try:
+                actual = int(spi_val, 2)
+                expect = expect_list[i]
+                if actual == expect:
+                   log.info("pass: actual = {} expect = {} - {}".format(actual, expect, self.name) )
+                else:
+                   log.error("FAIL: actual = {} expect = {} - {}".format(actual, expect, self.name) )
+                
+            except ValueError:
+                log.error("FAIL: actual = {} expect = {} - X Detected in {}".format(binstr, expect, self.name ) )
+            i += 1
+            
+
+    def start(self, expect_list):
+        cocotb.fork(self.start_fake_scoreboard(expect_list))
+
+
+    def stop(self):
+        self.enable_scoreboard = False
+        
+
+        
 
 
