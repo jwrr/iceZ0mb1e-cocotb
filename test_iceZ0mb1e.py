@@ -33,35 +33,6 @@ async def run_test(dut):
     dv = dv_test(dut)
 
 
-#     spi_io = {
-#         'sclk' : dut.spi_sclk,
-#         'cs_n' : dut.spi_cs,
-#         'sdi'  : dut.spi_mosi,
-#         'sdo'  : dut.spi_miso,
-#     }
-#     spi = SPIMonitor(dut=dut, io=spi_io)
-
-
-
-    spi = SPIMonitor(
-        dut=dut,
-        arg = {
-            'name' : "SPI Monitor",
-            'size' : 8, # bits
-            'mode' : 0,
-            'lsb_first' : False,
-        },
-        io= {
-            'sclk' : dut.spi_sclk,
-            'cs_n' : dut.spi_cs,
-            'sdi'  : dut.spi_mosi,
-            'sdo'  : dut.spi_miso,
-        }
-    )
-
-
-    expect_list = []
-    spi.start(expect_list)
     clk = Clock(dut.clk, 10, units="ns")  # Create a 10us period clock on port clk
     cocotb.fork(clk.start())  # Start the clock
 
@@ -101,20 +72,40 @@ async def run_test(dut):
     ### =============================================================================================================
     ### SPI TEST
 
+
+    n = 15
+    spi_mon_data = random.sample(range(0, 127), n)
+    spi_drv_data = spi_mon_data
+        
+    spi = SPIMonitor(
+        dut=dut,
+        arg = {
+            'name' : "SPI Monitor",
+            'size' : 8, # bits
+            'mode' : 0,
+            'lsb_first' : False,
+        },
+        io= {
+            'sclk' : dut.spi_sclk,
+            'cs_n' : dut.spi_cs,
+            'sdi'  : dut.spi_mosi,
+            'sdo'  : dut.spi_miso,
+        }
+    )
+    
+    spi.start(spi_mon_data, spi_drv_data)
+
+
     if en_spi_test:
         dv.info("SPI Test (random modes and speeds)")
         random.seed(42)
         spi_val = "10010111";
         err_cnt = 0;
         toggle = 0
-        for i in range(20):
-            if i == 10:
-                spi.stop()
+        for dat in spi_mon_data:
 
             # SEND BYTE-VALUE TO SEND OVER SPI TO Z80 USING BPIO p2[7:0]
-            expect = random.randrange(256) # 0x91 + i
-            expect_list.append(expect)
-            dut.P2_in.value = expect
+            dut.P2_in.value = dat
 
             # SEND MODE AND CLKDIV TO Z80 OVER GPIO P1[7:0]
             # Bit [1:0] mode
@@ -127,18 +118,12 @@ async def run_test(dut):
             P1_in = (clkdiv << 3) | toggle | spi.mode
             dut.P1_in.value = P1_in
 
-            # WAIT FOR Z80 TO SEND SsPI MESSAGE AND COMPARE WITH EXPECETD VALUE
-            spi_val = await spi.peripheral( "{:08b}".format(i|0x80) )
-            actual = int(spi_val, 2)
-            result = "pass" if actual == expect else "FAIL"
-            msg = "{} P1_in = {} clkdiv = {} mode = {} actual = {} expect = {}".format(
-                  result, hex(P1_in), (clkdiv // 2), spi.mode, actual, expect )
-            if result == "FAIL":
-                err_cnt += 1
-                dv.info(msg)
-            else:
-                dv.info(msg)
+            # WAIT FOR Z80 TO SEND SPI MESSAGE AND COMPARE WITH EXPECETD VALUE
+            spi_val = await spi.peripheral_mon()
 
+        dv.info("BEFORE STOP")
+        spi.stop()
+        dv.info("AFTER STOP")
         dut.P1_in.value = 0x80
         if err_cnt == 0:
             dv.info("SPI Test Passed")

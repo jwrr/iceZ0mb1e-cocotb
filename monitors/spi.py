@@ -62,14 +62,52 @@ class SPIMonitor(Monitor):
         return sdi_binstr
 
 
+        
+
+    async def peripheral_mon(self):
+        sdi_binstr = ""
+        if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
+            await FallingEdge(self.io['cs_n'])
+        send_edge = None
+        capture_edge  = self.sclk_re if self.mode in [0, 3] else self.sclk_fe
+        while len(sdi_binstr) < self.size:
+            edge = await capture_edge
+            if edge == self.cs_n_edge:
+                break
+            elif edge == capture_edge:
+                sdi_binstr = sdi_binstr + self.io['sdi'].value.binstr
+        if self.lsb_first:
+           sdi_binstr = sdi_binstr[::-1]
+        return sdi_binstr
+
+
+    async def peripheral_drv(self, sdo_binstr):
+        if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
+            await FallingEdge(self.io['cs_n'])
+        if self.lsb_first:
+            sdo_binstr = sdo_binstr[::-1]  # data bits sent from left to right
+        send_edge = None
+        send_edge = self.sclk_fe if self.mode in [0, 3] else self.sclk_re
+        if self.mode in [0, 2]:
+            self.io['sdo'] <= int(sdo_binstr[0], 2) # drive before 1st clock
+            sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
+        while sdo_binstr != "":
+            edge = await First(self.cs_n_edge, send_edge)
+            if edge == self.cs_n_edge:
+                break
+            self.io['sdo'] <= int(sdo_binstr[0], 2)
+            sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
+
+
     async def _monitor_recv(self):
         spi_val = "{:08b}".format(0)
         while True:
-            spi_val = await self.peripheral(spi_val)
+            cocotb.fork( self.peripheral_drv(spi_val) )
+            spi_val = await self.peripheral_mon()
             self._recv(spi_val)
 
 
-    async def fake_scoreboard(self, expect_list):
+    async def spi_scoreboard(self, expect_list):
         self.enable_scoreboard = True
         self.expect_list = expect_list
         log = self.dut._log
@@ -81,17 +119,17 @@ class SPIMonitor(Monitor):
                 actual = int(spi_val, 2)
                 expect = expect_list[i]
                 if actual == expect:
-                   log.info("pass: actual = {} expect = {} - {}".format(actual, expect, self.name) )
+                   log.info("pass: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
                 else:
-                   log.error("FAIL: actual = {} expect = {} - {}".format(actual, expect, self.name) )
+                   log.error("FAIL: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
                 
             except ValueError:
-                log.error("FAIL: actual = {} expect = {} - X Detected in {}".format(spi_val, expect, self.name ) )
+                log.error("FAIL: {} actual = {} expect = {} - X Detected in {}".format(i, spi_val, expect, self.name ) )
             i += 1
             
 
-    def start(self, expect_list):
-        cocotb.fork(self.fake_scoreboard(expect_list))
+    def start(self, spi_mon_data=None, spi_drv_data=None):
+        cocotb.fork(self.spi_scoreboard(spi_mon_data))
 
 
     def stop(self):
