@@ -8,7 +8,7 @@ from cocotb.triggers import Edge
 from cocotb.triggers import FallingEdge
 from cocotb.triggers import RisingEdge
 from cocotb.triggers import ClockCycles
-from utils.dv_test import dv_test
+from utils.dvtest import DVTest
 
 from cocotb.monitors import Monitor
 from cocotb.drivers import BitDriver
@@ -30,7 +30,6 @@ async def run_test(dut):
     en_gpio_loopback_test = True
     en_spi_test = True
 
-    dv = dv_test(dut)
 
 
     clk = Clock(dut.clk, 10, units="ns")  # Create a 10us period clock on port clk
@@ -43,6 +42,7 @@ async def run_test(dut):
     ### GPIO LOOPBACK TEST
 
     if en_gpio_loopback_test:
+        dv = DVTest(dut, "GPIO Loopback", msg_lvl="All")
         dv.info("GPIO Loopback Test")
         for i in range(20000):
             await FallingEdge(dut.clk)
@@ -60,13 +60,10 @@ async def run_test(dut):
         await Edge(dut.P1_out)
 
         gpio_result = int(dut.P1_out.value.binstr,2)
-        if gpio_result == 0:
-            dv.info("GPIO Loopback Test Passed")
-        else:
-            dv.info("GPIO Loopback Test Failed - Error Count = " + str(gpio_result) )
-
+        dv.eq(gpio_result, 0, "Error count from DUT")
         dut.P1_in = 0
         await ClockCycles(dut.clk,100)
+        dv.done()
 
 
     ### =============================================================================================================
@@ -81,18 +78,22 @@ async def run_test(dut):
             'mode' : 0,
             'lsb_first' : False,
         },
-        io= {
+        io = {
             'sclk' : dut.spi_sclk,
             'cs_n' : dut.spi_cs,
             'sdi'  : dut.spi_mosi,
             'sdo'  : dut.spi_miso,
         }
     )
-    
+
     spi_n = 15
-    spi_mon_data = random.sample(range(0, 127), 20)
-    spi_drv_data = spi_mon_data
-    spi_peripheral.start(spi_mon_data, spi_drv_data)
+    spi_peripheral_expect = []
+    spi_peripheral_response = []
+    for i in range(spi_n):
+       spi_peripheral_expect.append( random.randint(0, 127) )
+       spi_peripheral_response.append( random.randint(0, 127) )
+
+    spi_peripheral.start(spi_peripheral_expect, spi_peripheral_response)
 
     if en_spi_test:
         dv.info("SPI Test (random modes and speeds)")
@@ -102,7 +103,7 @@ async def run_test(dut):
         for iiii in range(spi_n):
 
             # SEND BYTE-VALUE TO SEND OVER SPI TO Z80 USING BPIO p2[7:0]
-            dut.P2_in.value = spi_mon_data[iiii]
+            dut.P2_in.value = spi_peripheral_expect[iiii]
 
             # SEND MODE AND CLKDIV TO Z80 OVER GPIO P1[7:0]
             # Bit [1:0] mode

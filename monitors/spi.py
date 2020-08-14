@@ -8,6 +8,7 @@ from cocotb.triggers import RisingEdge
 from cocotb.triggers import First
 from cocotb.monitors import Monitor
 
+from utils.dvtest import DVTest
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -81,30 +82,23 @@ class SPIPeripheralMonitor(Monitor):
     async def peripheral_scoreboard(self, expect_list):
         if expect_list == None:
             return
+        dv = DVTest(self.dut, msg_lvl="All")
         self.expect_list = expect_list
         log = self.dut._log
         i = 0
         spi_val = "{:08b}".format(0)
-        while self.enable and expect_list[i]:
+        while self.enable and ( i < len(expect_list) ):
             spi_val = await self.peripheral_monitor()
-            try:
-                actual = int(spi_val, 2)
-                expect = expect_list[i]
-                if actual == expect:
-                   log.info("pass: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
-                else:
-                   log.error("FAIL: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
-
-            except ValueError:
-                log.error("FAIL: {} actual = {} expect = {} - X Detected in {}".format(i, spi_val, expect, self.name ) )
+            dv.eq(spi_val, expect_list[i], '{} {}'.format(self.name, i) )
             i += 1
+        dv.done() 
 
 
     async def peripheral_sequencer(self, resp_list):
         if resp_list == None:
             return
         i = 0
-        while self.enable and resp_list[i]:
+        while self.enable and ( i < len(resp_list) ):
             resp_int = resp_list[i]
             resp_binstr = "{:08b}".format(resp_int)
             await self.peripheral_return_response(resp_binstr)
