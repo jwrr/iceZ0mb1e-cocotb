@@ -9,7 +9,6 @@ from cocotb.triggers import FallingEdge
 from cocotb.triggers import RisingEdge
 from cocotb.triggers import ClockCycles
 from utils.dv_test import dv_test
-from monitors.spi import SPIMonitor
 
 from cocotb.monitors import Monitor
 from cocotb.drivers import BitDriver
@@ -17,6 +16,7 @@ from cocotb.binary import BinaryValue
 from cocotb.regression import TestFactory
 from cocotb.scoreboard import Scoreboard
 
+from monitors.spi import SPIPeripheralMonitor
 
 
 # -----------------------------------------------------------------------------
@@ -73,13 +73,9 @@ async def run_test(dut):
     ### SPI TEST
 
 
-    n = 15
-    spi_mon_data = random.sample(range(0, 127), n)
-    spi_drv_data = spi_mon_data
-        
-    spi = SPIMonitor(
+    spi_peripheral = SPIPeripheralMonitor(
         dut=dut,
-        arg = {
+        cfg = {
             'name' : "SPI Monitor",
             'size' : 8, # bits
             'mode' : 0,
@@ -93,37 +89,36 @@ async def run_test(dut):
         }
     )
     
-    spi.start(spi_mon_data, spi_drv_data)
-
+    spi_n = 15
+    spi_mon_data = random.sample(range(0, 127), 20)
+    spi_drv_data = spi_mon_data
+    spi_peripheral.start(spi_mon_data, spi_drv_data)
 
     if en_spi_test:
         dv.info("SPI Test (random modes and speeds)")
         random.seed(42)
-        spi_val = "10010111";
-        err_cnt = 0;
+        err_cnt = 0
         toggle = 0
-        for dat in spi_mon_data:
+        for iiii in range(spi_n):
 
             # SEND BYTE-VALUE TO SEND OVER SPI TO Z80 USING BPIO p2[7:0]
-            dut.P2_in.value = dat
+            dut.P2_in.value = spi_mon_data[iiii]
 
             # SEND MODE AND CLKDIV TO Z80 OVER GPIO P1[7:0]
             # Bit [1:0] mode
             # Bit [2]   toggle (ensure p1_in changes)
             # Bit [6:3] clkdiv (div sys clk)
             # Bit [7]   done
-            spi.mode = random.randrange(4) # i % 4
+            spi_peripheral.mode = random.randrange(4) # i % 4
             clkdiv = random.randrange(0, 16, 2)
             toggle = (toggle + 4) & 0x04
-            P1_in = (clkdiv << 3) | toggle | spi.mode
+            P1_in = (clkdiv << 3) | toggle | spi_peripheral.mode
             dut.P1_in.value = P1_in
 
             # WAIT FOR Z80 TO SEND SPI MESSAGE AND COMPARE WITH EXPECETD VALUE
-            spi_val = await spi.peripheral_mon()
+            await spi_peripheral.peripheral_monitor()
 
-        dv.info("BEFORE STOP")
-        spi.stop()
-        dv.info("AFTER STOP")
+        spi_peripheral.stop()
         dut.P1_in.value = 0x80
         if err_cnt == 0:
             dv.info("SPI Test Passed")

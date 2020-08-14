@@ -12,7 +12,7 @@ from cocotb.monitors import Monitor
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-class SPIMonitor(Monitor):
+class SPIPeripheralMonitor(Monitor):
 
     #   mode cpol cpha
     #    0    0    0    drive on falling sample on rising;  sclk=0 when idle
@@ -20,59 +20,31 @@ class SPIMonitor(Monitor):
     #    2    1    1    drive on rising  sample on falling; sclk=1 when idle
     #    3    1    0    drive on falling sample on rising;  sclk=1 when idle
 
-    def __init__(self, dut, arg={}, io={}, callback=None, event=None):
+    def __init__(self, dut, cfg={}, io={}, callback=None, event=None):
         self.dut = dut
         self.io = io
-        self.name = arg['name'] if arg and arg['name'] else 'SPI Monitor'
-        self.size = arg['size'] if arg and arg['size'] else 8 # bits
-        self.lsb_first = arg['lsb_first'] if arg and arg['lsb_first'] else False
-        self.mode = arg['mode'] if arg and arg['mode'] else 0
-#         self.callback = arg['callback'] if arg and arg['callback'] else None
-#         self.event = arg['event'] if arg and arg['event'] else None
-        self.sclk_re = RisingEdge(self.io['sclk'])
-        self.sclk_fe = FallingEdge(self.io['sclk'])
-        self.cs_n_edge = Edge(self.io['cs_n']) if self.io['cs_n'] is not None else None
+        if cfg:
+            self.name = cfg['name'] if cfg['name'] else 'SPI Monitor'
+            self.size = cfg['size'] if cfg['size'] else 8 # bits
+            self.lsb_first = cfg['lsb_first'] if cfg['lsb_first'] else False
+            self.mode = cfg['mode'] if cfg['mode'] else 0
+#           self.callback = cfg['callback'] if cfg['callback'] else None
+#           self.event = cfg['event'] if cfg['event'] else None
+        self.enable = False # .start() sets enable, .stop() clears enable
         Monitor.__init__(self, callback, event)
 
-        
-    async def peripheral(self, sdo_binstr):
+
+    async def peripheral_monitor(self):
+        cs_n_edge = Edge(self.io['cs_n']) if self.io['cs_n'] is not None else None
         sdi_binstr = ""
         if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
             await FallingEdge(self.io['cs_n'])
-        if self.lsb_first:
-            sdo_binstr = sdo_binstr[::-1]  # data bits sent from left to right
-        send_edge = None
-        if self.io['sdo'] is not None: # some 2-wire implementations are write only
-            send_edge = self.sclk_fe if self.mode in [0, 3] else self.sclk_re
-        capture_edge  = self.sclk_re if self.mode in [0, 3] else self.sclk_fe
-        if self.mode in [0, 2] and self.io['sdo'] is not None:
-            self.io['sdo'] <= int(sdo_binstr[0], 2) # drive before 1st clock
-            sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
-        while len(sdi_binstr) < self.size:
-            edge = await First(self.cs_n_edge, capture_edge, send_edge)
-            if edge == self.cs_n_edge:
-                break
-            elif edge == capture_edge:
-                sdi_binstr = sdi_binstr + self.io['sdi'].value.binstr
-            elif sdo_binstr != "": # Send Edge. Check if data is available
-                self.io['sdo'] <= int(sdo_binstr[0], 2)
-                sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
-        if self.lsb_first:
-           sdi_binstr = sdi_binstr[::-1]
-        return sdi_binstr
-
-
-        
-
-    async def peripheral_mon(self):
-        sdi_binstr = ""
-        if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
-            await FallingEdge(self.io['cs_n'])
-        send_edge = None
-        capture_edge  = self.sclk_re if self.mode in [0, 3] else self.sclk_fe
+        capture_edge = FallingEdge(self.io['sclk'])
+        if self.mode in [0, 3]:
+            capture_edge = RisingEdge(self.io['sclk'])
         while len(sdi_binstr) < self.size:
             edge = await capture_edge
-            if edge == self.cs_n_edge:
+            if edge == cs_n_edge:
                 break
             elif edge == capture_edge:
                 sdi_binstr = sdi_binstr + self.io['sdi'].value.binstr
@@ -81,40 +53,40 @@ class SPIMonitor(Monitor):
         return sdi_binstr
 
 
-    async def peripheral_drv(self, sdo_binstr):
+    async def peripheral_return_response(self, sdo_binstr):
+        cs_n_edge = Edge(self.io['cs_n']) if self.io['cs_n'] is not None else None
         if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
             await FallingEdge(self.io['cs_n'])
         if self.lsb_first:
             sdo_binstr = sdo_binstr[::-1]  # data bits sent from left to right
-        send_edge = None
-        send_edge = self.sclk_fe if self.mode in [0, 3] else self.sclk_re
+        send_edge = FallingEdge(self.io['sclk'])
         if self.mode in [0, 2]:
+            send_edge = RisingEdge(self.io['sclk'])
             self.io['sdo'] <= int(sdo_binstr[0], 2) # drive before 1st clock
             sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
         while sdo_binstr != "":
-            edge = await First(self.cs_n_edge, send_edge)
-            if edge == self.cs_n_edge:
+            edge = await First(cs_n_edge, send_edge)
+            if edge == cs_n_edge:
                 break
             self.io['sdo'] <= int(sdo_binstr[0], 2)
             sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
 
 
     async def _monitor_recv(self):
-        spi_val = "{:08b}".format(0)
-        while True:
-            cocotb.fork( self.peripheral_drv(spi_val) )
-            spi_val = await self.peripheral_mon()
+        while self.enable:
+            spi_val = await self.peripheral_monitor()
             self._recv(spi_val)
 
 
-    async def spi_scoreboard(self, expect_list):
-        self.enable_scoreboard = True
+    async def peripheral_scoreboard(self, expect_list):
+        if expect_list == None:
+            return
         self.expect_list = expect_list
         log = self.dut._log
         i = 0
         spi_val = "{:08b}".format(0)
-        while self.enable_scoreboard:
-            spi_val = await self.peripheral(spi_val)
+        while self.enable and expect_list[i]:
+            spi_val = await self.peripheral_monitor()
             try:
                 actual = int(spi_val, 2)
                 expect = expect_list[i]
@@ -122,20 +94,63 @@ class SPIMonitor(Monitor):
                    log.info("pass: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
                 else:
                    log.error("FAIL: {} actual = {} expect = {} - {}".format(i, actual, expect, self.name) )
-                
+
             except ValueError:
                 log.error("FAIL: {} actual = {} expect = {} - X Detected in {}".format(i, spi_val, expect, self.name ) )
             i += 1
-            
 
-    def start(self, spi_mon_data=None, spi_drv_data=None):
-        cocotb.fork(self.spi_scoreboard(spi_mon_data))
+
+    async def peripheral_sequencer(self, resp_list):
+        if resp_list == None:
+            return
+        i = 0
+        while self.enable and resp_list[i]:
+            resp_int = resp_list[i]
+            resp_binstr = "{:08b}".format(resp_int)
+            await self.peripheral_return_response(resp_binstr)
+            i += 1
+
+
+    def start(self, spi_mon_data=None, spi_response_data=None):
+        self.enable = True
+        cocotb.fork( self.peripheral_sequencer(spi_response_data) )
+        cocotb.fork( self.peripheral_scoreboard(spi_mon_data) )
 
 
     def stop(self):
-        self.enable_scoreboard = False
-        
+        self.enable = False
 
-        
+
+
+#     async def peripheral_depricated(self, sdo_binstr):
+#         self.sclk_re = RisingEdge(self.io['sclk'])
+#         self.sclk_fe = FallingEdge(self.io['sclk'])
+#         self.cs_n_edge = Edge(self.io['cs_n']) if self.io['cs_n'] is not None else None
+#         sdi_binstr = ""
+#         if self.io['cs_n'] is not None: # some 2-wire point-to-points do not have cs
+#             await FallingEdge(self.io['cs_n'])
+#         if self.lsb_first:
+#             sdo_binstr = sdo_binstr[::-1]  # data bits sent from left to right
+#         send_edge = None
+#         if self.io['sdo'] is not None: # some 2-wire implementations are write only
+#             send_edge = self.sclk_fe if self.mode in [0, 3] else self.sclk_re
+#         capture_edge  = self.sclk_re if self.mode in [0, 3] else self.sclk_fe
+#         if self.mode in [0, 2] and self.io['sdo'] is not None:
+#             self.io['sdo'] <= int(sdo_binstr[0], 2) # drive before 1st clock
+#             sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
+#         while len(sdi_binstr) < self.size:
+#             edge = await First(self.cs_n_edge, capture_edge, send_edge)
+#             if edge == self.cs_n_edge:
+#                 break
+#             elif edge == capture_edge:
+#                 sdi_binstr = sdi_binstr + self.io['sdi'].value.binstr
+#             elif sdo_binstr != "": # Send Edge. Check if data is available
+#                 self.io['sdo'] <= int(sdo_binstr[0], 2)
+#                 sdo_binstr = sdo_binstr[1:] # remove bit 0 (left-most bit)
+#         if self.lsb_first:
+#            sdi_binstr = sdi_binstr[::-1]
+#         return sdi_binstr
+
+
 
 
