@@ -29,8 +29,6 @@ class SPIPeripheralMonitor(Monitor):
             self.size = cfg['size'] if cfg['size'] else 8 # bits
             self.lsb_first = cfg['lsb_first'] if cfg['lsb_first'] else False
             self.mode = cfg['mode'] if cfg['mode'] else 0
-#           self.callback = cfg['callback'] if cfg['callback'] else None
-#           self.event = cfg['event'] if cfg['event'] else None
         self.enable = False # .start() sets enable, .stop() clears enable
         Monitor.__init__(self, callback, event)
 
@@ -74,24 +72,9 @@ class SPIPeripheralMonitor(Monitor):
 
 
     async def _monitor_recv(self):
-        while self.enable:
+        while True:
             spi_val = await self.peripheral_monitor()
-            self._recv(spi_val)
-
-
-    async def peripheral_scoreboard(self, expect_list):
-        if expect_list == None:
-            return
-        dv = DVTest(self.dut, msg_lvl="All")
-        self.expect_list = expect_list
-        log = self.dut._log
-        i = 0
-        spi_val = "{:08b}".format(0)
-        while self.enable and ( i < len(expect_list) ):
-            spi_val = await self.peripheral_monitor()
-            dv.eq(spi_val, expect_list[i], '{} {}'.format(self.name, i) )
-            i += 1
-        dv.done() 
+            self._recv( int(spi_val,2) )
 
 
     async def peripheral_sequencer(self, resp_list):
@@ -108,7 +91,7 @@ class SPIPeripheralMonitor(Monitor):
     def start(self, spi_mon_data=None, spi_response_data=None):
         self.enable = True
         cocotb.fork( self.peripheral_sequencer(spi_response_data) )
-        cocotb.fork( self.peripheral_scoreboard(spi_mon_data) )
+#         cocotb.fork( self.peripheral_scoreboard(spi_mon_data) )
 
 
     def stop(self):
@@ -144,6 +127,21 @@ class SPIPeripheralMonitor(Monitor):
 #         if self.lsb_first:
 #            sdi_binstr = sdi_binstr[::-1]
 #         return sdi_binstr
+
+
+#     async def peripheral_scoreboard(self, expect_list):
+#         if expect_list == None:
+#             return
+#         dv = DVTest(self.dut, msg_lvl="All", err_max=10)
+#         self.expect_list = expect_list
+#         log = self.dut._log
+#         i = 0
+#         spi_val = "{:08b}".format(0)
+#         while self.enable and ( i < len(expect_list) ):
+#             spi_val = await self.peripheral_monitor()
+#             dv.eq(spi_val, expect_list[i], '{} {}'.format(self.name, i) )
+#             i += 1
+#         dv.done() 
 
 
 

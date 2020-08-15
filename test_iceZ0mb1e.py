@@ -19,6 +19,21 @@ from cocotb.scoreboard import Scoreboard
 from monitors.spi import SPIPeripheralMonitor
 
 
+
+
+ 
+def spi_input_gen():
+    """Generator for input data applied by BitDriver.
+
+    Continually yield a tuple with the number of cycles to be on
+    followed by the number of cycles to be off.
+    """
+    
+    while True:
+        yield random.randint(1, 128), random.randint(1, 128)
+
+
+
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -29,7 +44,6 @@ async def run_test(dut):
 
     en_gpio_loopback_test = True
     en_spi_test = True
-
 
 
     clk = Clock(dut.clk, 10, units="ns")  # Create a 10us period clock on port clk
@@ -86,17 +100,29 @@ async def run_test(dut):
         }
     )
 
-    spi_n = 15
-    spi_peripheral_expect = []
-    spi_peripheral_response = []
-    for i in range(spi_n):
-       spi_peripheral_expect.append( random.randint(0, 127) )
-       spi_peripheral_response.append( random.randint(0, 127) )
+#        spi_peripheral_expect.append( random.randint(0, 127) )
+#        spi_peripheral_response.append( random.randint(0, 127) )
 
-    spi_peripheral.start(spi_peripheral_expect, spi_peripheral_response)
+
 
     if en_spi_test:
+
         dv.info("SPI Test (random modes and speeds)")
+
+        spi_n = 15
+        spi_peripheral_expect = []
+        spi_scoreboard_expect = []
+        spi_peripheral_response = []
+        for i in range(spi_n):
+           val = i
+           spi_peripheral_expect.append( val )
+           spi_scoreboard_expect.append( val )
+           spi_peripheral_response.append( val )
+
+        spi_peripheral.start(spi_peripheral_expect, spi_peripheral_response)
+
+        scoreboard = Scoreboard(dut)
+        scoreboard.add_interface(spi_peripheral, spi_scoreboard_expect, strict_type=False)
         random.seed(42)
         err_cnt = 0
         toggle = 0
@@ -117,6 +143,7 @@ async def run_test(dut):
             dut.P1_in.value = P1_in
 
             # WAIT FOR Z80 TO SEND SPI MESSAGE AND COMPARE WITH EXPECETD VALUE
+            dv.info("Waiting for SPI Peripheral ({})".format(iiii))
             await spi_peripheral.peripheral_monitor()
 
         spi_peripheral.stop()
@@ -129,7 +156,7 @@ async def run_test(dut):
         await ClockCycles(dut.clk,100)
 
         # Print result of scoreboard.
-        # raise tb.scoreboard.result
+        dv.is_true(scoreboard.result, "SPI Test Scoreboard")
 
 
         ### =============================================================================================================
