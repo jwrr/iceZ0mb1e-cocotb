@@ -81,6 +81,7 @@ void main ()
     uint8_t buffer[64];
     int8_t uart_rx = 0;
 
+/*
     // ========================================================================
     // GPIO LOOP-BACK TEST
     // Testbench connects P1_out to P2_in
@@ -97,6 +98,7 @@ void main ()
     uint8_t val = 0;
     for (uint8_t i2=0; i2<20; i2++) val = port_a; // delay between tests
 
+
     // ========================================================================
     // SPI TEST
 
@@ -106,15 +108,36 @@ void main ()
     while (1) {
         uint8_t a = port_a;
         if (a & 0x80) break;  // bit[7] = done
-        if (a != mode) {
-            speed = (a >> 3) & 0x0F;
-            mode = a & 0x03;
-            spi_config(mode, speed);
-            spi_xfer_single(port_b);
-        }
+        speed = (a >> 3) & 0x0F;
+        mode = a & 0x03;
+        spi_config(mode, speed);
+        spi_xfer_single(port_b);
     }
 
+asdfasdf */
+    
+    
     // ========================================================================
+
+    port_cfg = 0x0; // both are output
+    int ms = 500;
+    port_a = 0;
+    while (1) {
+        ms = (ms==500) ? 250 : 500;
+        for (int j=0; j < ms; j++) {
+            for (int i=0; i<420; i++) { // about a millisecond (clk=16MHz)
+                port_b = i;
+            }
+        }
+        port_a++;  // bit 0 is LED
+        
+    }
+    
+
+    // ========================================================================
+
+/*
+
 
     //Initialize:
     uart_initialize(9600);
@@ -205,4 +228,7 @@ void main ()
                 break;
         }
     }
+
+asdfasdf */
+
 }

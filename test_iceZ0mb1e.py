@@ -42,11 +42,11 @@ def spi_input_gen():
 #### @cocotb.test()
 async def run_test(dut):
 
-    en_gpio_loopback_test = True
+    en_gpio_loopback_test = False
     en_spi_test = True
 
 
-    clk = Clock(dut.clk, 10, units="ns")  # Create a 10us period clock on port clk
+    clk = Clock(dut.clk, 31, units="ns")  # Create a 10us period clock on port clk
     cocotb.fork(clk.start())  # Start the clock
 
     dut.uart_txd = 0
@@ -106,10 +106,11 @@ async def run_test(dut):
 
 
     if en_spi_test:
+        dv = DVTest(dut, "SPI Loopback", msg_lvl="All")
 
         dv.info("SPI Test (random modes and speeds)")
 
-        spi_n = 15
+        spi_n = 20
         spi_peripheral_expect = []
         spi_scoreboard_expect = []
         spi_peripheral_response = []
@@ -159,7 +160,18 @@ async def run_test(dut):
         dv.is_true(scoreboard.result, "SPI Test Scoreboard")
 
 
-        ### =============================================================================================================
+    ### =============================================================================================================
+
+    dv = DVTest(dut, "GPIO Loopback", msg_lvl="All")
+    dv.info("Wait a long time")
+#     for i in range(400):
+    for i in range(1):
+        dv.info("{} 100k clocks".format(i) )
+#         await ClockCycles(dut.clk, 100000)
+        await ClockCycles(dut.clk, 10000)
+    dv.info("I'm done waiting'")
+        
+
 
 # Register the test.
 factory = TestFactory(run_test)
