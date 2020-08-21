@@ -1,3 +1,0 @@
-firmware:
-	cp main_cocotb.c ../firmware/main/main.c; cd ..; make clean; make firmware TARGET=8k; cd iceZ0mb1e-cocotb
-

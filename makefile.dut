@@ -1,0 +1,12 @@
+fpga: firmware
+	cd ..; make fpga TARGET=tinybx
+firmware: clean copy
+	cd ..; make firmware TARGET=8k
+copy: # copy local files that have been changed
+	cp -ruv  dut_tweaks/* ..
+clean:
+	cd ..; make clean
+	
+	
+
+
