@@ -75,6 +75,122 @@ void View_Memory(uint8_t *mem, uint16_t len)
     uart_write(strbuf);
 }
 
+
+void blink(unsigned int hi, unsigned int low)
+{
+    unsigned int ms = 420;
+    port_a = 0xff;
+    for (unsigned int j=0; j<hi; j++)
+        for (unsigned int i=0; i<ms; i++)
+            port_b = i; // this is just a delay
+
+    port_a = 0x00;  // bit 0 is LED
+    for (unsigned int j=0; j<low; j++)
+        for (unsigned int i=0; i<ms; i++)
+            port_b = i; // this is just a delay
+}
+
+unsigned int t = 200;
+
+void dot() { blink(200, 200);}
+void dash() { blink(3*200, 200);}
+void endsym() { blink(0, 2*200);} // this is actually 3*dot
+void endword() { blink(0, 6*200);} // this is actually 7*dot
+
+void didah(const char* str)
+{
+    char c = ' ';
+    for (int i=0; str[i]!='\0'; i++) {
+        c = str[i];
+        switch (c) {
+            case '.': dot(); break;
+            case '_': dash(); break;
+            case ' ': endword(); break;
+        }
+    }
+    if (c!=' ') endsym();
+}
+
+
+void morse(char* str)
+{
+    const char* letters[] = {
+        "._",     // 0 a
+        "_...",   // 1 b
+        "_._.",   // 2 c
+        "_..",    // 3 d
+        ".",      // 4 e
+        ".._.",   // 5 f
+        "__.",    // 6 g
+        "....",   // 7 h
+        "..",     // 8 i
+        ".___",   // 9 j
+        "_._",    // 10 k
+        "._..",   // 11 l
+        "__",     // 12 m
+        "_.",     // 13 n
+        "___",    // 14 o
+        ".__.",   // 15 p
+        "__._",   // 16 q
+        "._.",    // 17 r
+        "...",    // 18 s
+        "_",      // 19 t
+        ".._",    // 20 u
+        "..._",   // 21 v
+        ".__",    // 22 w
+        "_.._",   // 23 x
+        "_.__",   // 24 y
+        "__..",   // 25 z
+        "_____",  // 26 0
+        ".____",  // 27 1
+        "..___",  // 28 2
+        "...__",  // 29 3
+        "...._",  // 30 4
+        ".....",  // 31 5
+        "_....",  // 32 6
+        "__...",  // 33 7
+        "___..",  // 34 8
+        "____.",  // 35 9
+        " "       // 36 end of word
+//         "", // 0 .
+//         "", // 0 ,
+//         "", // 0 ?
+//         "", // 0 '
+//         "", // 0 !
+//         "", // 0 /
+//         "", // 0 (
+//         "", // 0 )
+//         "", // 0 &
+//         "", // 0 :
+//         "", // 0 ;
+//         "", // 0 =
+//         "", // 0 +
+//         "", // 0 -
+//         "", // 0 _
+//         "", // 0 "
+//         "", // 0 $
+//         "", // 0 @
+//         ""  // 0 (
+    };
+
+    for (int i=0; str[i]!='\0'; i++) {
+        char c = str[i];
+        unsigned int offset = 0;
+        if ('A' <= c && c <= 'Z') {
+            offset = c - 'A';
+        } else if ('a' <= c && c <= 'z') {
+            offset = c - 'a';
+        } else if ('0' <= c && c <= '9') { // number
+            offset = c - '0' + 26;
+        } else if (c==' ') {
+            offset = 36;
+        } else {
+            continue;
+        }
+        didah( letters[offset] );
+    }
+} // morse
+
 void main ()
 {
     uint16_t *addr;
@@ -115,24 +231,16 @@ void main ()
     }
 
 asdfasdf */
-    
-    
+
+
     // ========================================================================
 
-    port_cfg = 0x0; // both are output
-    int ms = 500;
-    port_a = 0;
+    port_cfg = 0x0; // make both io ports output
     while (1) {
-        ms = (ms==500) ? 250 : 500;
-        for (int j=0; j < ms; j++) {
-            for (int i=0; i<420; i++) { // about a millisecond (clk=16MHz)
-                port_b = i;
-            }
-        }
-        port_a++;  // bit 0 is LED
-        
+        morse("sos abc def ghi jkl mno pqr stu vwx yz");
+//        didah("...s___s... ");
     }
-    
+
 
     // ========================================================================
 
