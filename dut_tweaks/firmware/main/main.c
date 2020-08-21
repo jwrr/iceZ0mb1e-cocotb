@@ -78,18 +78,26 @@ void View_Memory(uint8_t *mem, uint16_t len)
 }
 
 
+
+
 void blink(unsigned int hi, unsigned int low)
 {
     unsigned int ms = 420;
     port_a = 0xff;
-    for (unsigned int j=0; j<hi; j++)
-        for (unsigned int i=0; i<ms; i++)
-            port_b = i; // this is just a delay
+    for (unsigned int j=0; j<hi; j++) {
+        for (unsigned int i=0; i<ms; i++) {
+            tim_capture = 1;
+            port_b = tim_byte0; // this is just a delay
+        }
+    }
 
     port_a = 0x00;  // bit 0 is LED
-    for (unsigned int j=0; j<low; j++)
-        for (unsigned int i=0; i<ms; i++)
-            port_b = i; // this is just a delay
+    for (unsigned int j=0; j<low; j++) {
+        for (unsigned int i=0; i<ms; i++) {
+            tim_capture = 1;
+            port_b = tim_byte0; // this is just a delay
+        }
+    }
 }
 
 unsigned int t = 200;
@@ -240,6 +248,7 @@ asdfasdf */
     port_cfg = 0x0; // make both io ports output
     while (1) {
         morse("sos abc def ghi jkl mno pqr stu vwx yz");
+        
 //        didah("...s___s... ");
     }
 
