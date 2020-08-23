@@ -23,8 +23,6 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-// helloZZZZ
-
 #include <stdint.h>
 #include "mini-printf.h"
 #include "icez0mb1e.h"
@@ -33,6 +31,7 @@
 #include "i2c.h"
 #include "spi.h"
 #include "ssd1306.h"
+#include "tim.h"
 
 int8_t start = 0;
 uint16_t last_usable_addr = 0;
@@ -82,30 +81,22 @@ void View_Memory(uint8_t *mem, uint16_t len)
 
 void blink(unsigned int hi, unsigned int low)
 {
-    unsigned int ms = 420;
-    port_a = 0xff;
-    for (unsigned int j=0; j<hi; j++) {
-        for (unsigned int i=0; i<ms; i++) {
-            tim_capture = 1;
-            port_b = tim_byte0; // this is just a delay
-        }
-    }
+    port_a = 0xff; // bit 0 is LED
+    tim_waitms(hi);
 
     port_a = 0x00;  // bit 0 is LED
-    for (unsigned int j=0; j<low; j++) {
-        for (unsigned int i=0; i<ms; i++) {
-            tim_capture = 1;
-            port_b = tim_byte0; // this is just a delay
-        }
-    }
+    tim_waitms(low);
 }
 
-unsigned int t = 200;
+unsigned int wpm = 5;
+unsigned int dit_time_ms = 240; // 5 wpm
 
-void dot() { blink(200, 200);}
-void dash() { blink(3*200, 200);}
-void endsym() { blink(0, 2*200);} // this is actually 3*dot
-void endword() { blink(0, 6*200);} // this is actually 7*dot
+// unsigned int dit_time_ms = 6*1000/(5*wpm);  
+
+void dot() { blink(240, 240); }
+void dash() { blink(3*240, 240); }
+void endsym() { blink(0, 2*240); } // this is actually 3*dot
+void endword() { blink(0, 6*240); } // this is actually 7*dot
 
 void didah(const char* str)
 {
@@ -124,6 +115,26 @@ void didah(const char* str)
 
 void morse(char* str)
 {
+/*
+  di    = 1 unit
+  dah   = 3*di
+  intra_char_time = 1*di  -- time between dits,  dahs
+  inter_char_time = 3*di  -- time between letters
+  inter_word_time = 7*di  -- time between words
+  word
+  . = di+space   = 2
+  _ = 2*di+space = 4
+  s = 2*space    = 2 (this is really 3 spaces. the previous symbol includes a trailing space)
+  w = 6*space    = 6 (this is really 7 spaces. the previous symbol includes a trailing space)
+  paris = ".__.s._s._.s..s...w" = 2+4+4+2+2+ 2+4+2+ 2+4+2+2+ 2+2+2+ 2+2+2+6 = 14+8+10+6+12 = 50 
+  
+  1wpm = 1*paris/minute = 50 di / 60sec; Tdi = 1.2sec per di
+  5wpm = (1.2sec/di) / 5 = 0.240sec/di
+  13wpm = 1.2 / 13 = 0.092 sec/di
+  20wpm = 1.2 / 20 = 0.06 sec/di
+  
+*/
+
     const char* letters[] = {
         "._",     // 0 a
         "_...",   // 1 b
@@ -240,16 +251,30 @@ void main ()
         spi_xfer_single(port_b);
     }
 
+
+
+   tim_cfg = 1;  // init
+   tim_wait0 = 0x24;
+   tim_wait1 = 0xf4;
+   tim_wait2 = 0;
+   tim_wait3 = 0;
+   while (1) {
+       tim_cfg = 2; // start
+       while (tim_busy);
+   }
+
 asdfasdf */
 
 
     // ========================================================================
 
     port_cfg = 0x0; // make both io ports output
+    port_a = 0x55;
+//    while (1) blink(9000,1000);
+
     while (1) {
-        morse("sos abc def ghi jkl mno pqr stu vwx yz");
-        
-//        didah("...s___s... ");
+        for (int i=0; i<5; i++) morse("paris ");
+        tim_waitms(10000); // wait 10 seconds
     }
 
 

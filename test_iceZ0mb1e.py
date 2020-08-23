@@ -160,7 +160,7 @@ async def run_test(dut):
 
     en_timer_test = True
     if en_timer_test:
-        for i in range(20):
+        for i in range(300):
             await ClockCycles(dut.clk,1000)
             print("{} clocks".format(i*1000) )
 

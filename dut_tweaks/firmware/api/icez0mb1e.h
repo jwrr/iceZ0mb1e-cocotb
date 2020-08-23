@@ -66,11 +66,20 @@ __sfr __at 0x64 spi_dat_in;
 __sfr __at 0x65 spi_dat_out;
 
 
-__sfr __at 0x70 tim_byte0;
-__sfr __at 0x71 tim_byte1;
-__sfr __at 0x72 tim_byte2;
-__sfr __at 0x73 tim_byte3;
-__sfr __at 0x74 tim_capture;
+__sfr __at 0x70 tim_wait0;
+__sfr __at 0x71 tim_wait1;
+__sfr __at 0x72 tim_wait2;
+__sfr __at 0x73 tim_wait3;
+
+__sfr __at 0x74 tim_cfg;
+__sfr __at 0x75 tim_busy;
+
+__sfr __at 0x76 tim_curr0;
+__sfr __at 0x77 tim_curr1;
+__sfr __at 0x78 tim_curr2;
+__sfr __at 0x79 tim_curr3;
+
+
 
 #endif
 

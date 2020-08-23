@@ -253,7 +253,7 @@ endgenerate
 		.cs_n		(tim_cs_n),
 		.rd_n		(rd_n),
 		.wr_n		(wr_n),
-		.addr		(addr[2:0])
+		.addr		(addr[3:0])
 	);
 
 
