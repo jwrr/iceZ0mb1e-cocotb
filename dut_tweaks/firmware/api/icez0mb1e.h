@@ -34,7 +34,7 @@
 #define SYS_ROM_SIZE    0x2000
 
 #define SYS_RAM_ADDR    0x8000
-#define SYS_RAM_SIZE    0x2000
+#define SYS_RAM_SIZE    0x1000
 
 __sfr __at 0x18 uart_dm0;
 __sfr __at 0x18 uart_thr;

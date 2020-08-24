@@ -25,7 +25,7 @@
 
 module iceZ0mb1e  #(
 	parameter RAM_TYPE = 0,
-	parameter RAM_WIDTH = 13,
+	parameter RAM_WIDTH = 12,
 	parameter ROM_WIDTH = 13,
 	parameter RAM_LOC = 16'h8000
 ) (
@@ -105,6 +105,8 @@ module iceZ0mb1e  #(
 	assign rom_cs_n = ~(!mreq_n & (addr  < ROM_SIZE));
 	assign ram_cs_n = ~(!mreq_n & (addr >= RAM_LOC) & (addr < (RAM_LOC+RAM_SIZE)));
 
+        wire ram_cs_n_bad = ~(!mreq_n & (addr >= (RAM_LOC+RAM_SIZE)));
+
 	//SoC Info
 	initial begin
 		$display("iceZ0mb1e Configuration Info" );
@@ -142,7 +144,7 @@ module iceZ0mb1e  #(
     	.clk		(clk),
     	.reset_n	(reset_n),
     	.data_out	(data_miso_rom),
-    	.data_in	('h0),
+    	.data_in	(8'h0),
     	.cs_n		(rom_cs_n),
     	.rd_n		(rd_n),
     	.wr_n		(wr_n),
