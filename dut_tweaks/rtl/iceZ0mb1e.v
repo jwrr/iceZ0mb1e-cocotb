@@ -92,7 +92,7 @@ module iceZ0mb1e  #(
 		end
 	end
 
-	wire uart_cs_n, port_cs_n, i2c_cs_n, spi_cs_n, tim_cs_n;
+	wire uart_cs_n, port_cs_n, i2c_cs_n, spi_cs_n, timer_cs_n;
 	wire rom_cs_n, ram_cs_n;
 
 	//I/O Address Decoder:
@@ -100,7 +100,7 @@ module iceZ0mb1e  #(
 	assign port_cs_n  = ~(!iorq_n & (addr[7:3] == 5'b01000)); // PORT base 0x40
 	assign i2c_cs_n   = ~(!iorq_n & (addr[7:3] == 5'b01010)); // i2c base 0x50
 	assign spi_cs_n   = ~(!iorq_n & (addr[7:3] == 5'b01100)); // spi base 0x60 01100 000 -> 0110 0000
-	assign tim_cs_n   = ~(!iorq_n & (addr[7:3] == 5'b01110)); // spi base 0x70 01110 000 -> 0111 0000
+	assign timer_cs_n   = ~(!iorq_n & (addr[7:3] == 5'b01110)); // spi base 0x70 01110 000 -> 0111 0000
 	//Memory Address Decoder:
 	assign rom_cs_n = ~(!mreq_n & (addr  < ROM_SIZE));
 	assign ram_cs_n = ~(!mreq_n & (addr >= RAM_LOC) & (addr < (RAM_LOC+RAM_SIZE)));
@@ -246,13 +246,13 @@ endgenerate
 		.cs			(spi_cs)
 	);
 
-	simpletim tim0
+	simpletimer timer0
 	(
 		.clk		(clk),
 		.reset_n	(reset_n),
 		.data_out	(data_miso_timer),
 		.data_in	(data_mosi),
-		.cs_n		(tim_cs_n),
+		.cs_n		(timer_cs_n),
 		.rd_n		(rd_n),
 		.wr_n		(wr_n),
 		.addr		(addr[3:0])

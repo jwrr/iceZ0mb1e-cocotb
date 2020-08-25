@@ -23,62 +23,34 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#ifndef __ICEZOMB1E_H
-#define __ICEZOMB1E_H
-
 #include <stdint.h>
-
-#define SYS_XTAL_FREQ   12E6
-
-#define SYS_ROM_ADDR    0x0000
-#define SYS_ROM_SIZE    0x2000
-
-#define SYS_RAM_ADDR    0x8000
-#define SYS_RAM_SIZE    0x1000
-
-__sfr __at 0x18 uart_dm0;
-__sfr __at 0x18 uart_thr;
-__sfr __at 0x18 uart_rbr;
-__sfr __at 0x19 uart_dm1;
-__sfr __at 0x19 uart_ier;
-__sfr __at 0x1a uart_iir;
-__sfr __at 0x1b uart_lcr;
-__sfr __at 0x1c uart_mcr;
-__sfr __at 0x1d uart_lsr;
-__sfr __at 0x1e uart_msr;
-__sfr __at 0x1f uart_scr;
-
-__sfr __at 0x40 port_a;
-__sfr __at 0x41 port_b;
-__sfr __at 0x42 port_cfg;
-
-__sfr __at 0x50 i2c_status;
-__sfr __at 0x52 i2c_clkdiv;
-__sfr __at 0x53 i2c_cmd;
-__sfr __at 0x54 i2c_dat_in;
-__sfr __at 0x55 i2c_dat_out;
-
-__sfr __at 0x60 spi_status;
-__sfr __at 0x61 spi_cfg;
-__sfr __at 0x62 spi_clkdiv;
-__sfr __at 0x63 spi_cmd;
-__sfr __at 0x64 spi_dat_in;
-__sfr __at 0x65 spi_dat_out;
+#include "icez0mb1e.h"
+#include "simpletimer.h"
 
 
-__sfr __at 0x70 timer_del0;
-__sfr __at 0x71 timer_del1;
-__sfr __at 0x72 timer_del2;
-__sfr __at 0x73 timer_del3;
-__sfr __at 0x74 timer_cfg;
-__sfr __at 0x75 timer_busy;
-__sfr __at 0x76 timer_now0;
-__sfr __at 0x77 timer_now1;
-__sfr __at 0x78 timer_now2;
-__sfr __at 0x79 timer_now3;
+void timer_start(void)
+{
+    timer_cfg = 0;
+    timer_cfg = 1;
+}
 
 
+void timer_stop(void)
+{
+    timer_cfg = 0;
+}
 
-#endif
+
+// 16MHz clock
+void timer_delay_ms(uint16_t n)
+{
+//   timer_del1 = 0x3e; timer_del0 = 0x80;
+   timer_del1 = 0x1f; timer_del0 = 0x40;
+   timer_del3 = timer_del2 = 0;
+   for (unsigned int i=0; i<n; i++) {
+       timer_cfg = 3; // start
+       while (timer_busy);
+   }
+}
 
 

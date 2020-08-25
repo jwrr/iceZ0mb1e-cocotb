@@ -31,7 +31,7 @@
 #include "i2c.h"
 #include "spi.h"
 #include "ssd1306.h"
-#include "tim.h"
+#include "simpletimer.h"
 
 int8_t start = 0;
 uint16_t last_usable_addr = 0;
@@ -77,15 +77,13 @@ void View_Memory(uint8_t *mem, uint16_t len)
 }
 
 
-
-
 void blink(unsigned int hi, unsigned int low)
 {
     port_a = 0xff; // bit 0 is LED
-    tim_waitms(hi);
+    timer_delay_ms(hi);
 
     port_a = 0x00;  // bit 0 is LED
-    tim_waitms(low);
+    timer_delay_ms(low);
 }
 
 unsigned int wpm = 5;
@@ -252,15 +250,14 @@ void main ()
     }
 
 
-
-   tim_cfg = 1;  // init
-   tim_wait0 = 0x24;
-   tim_wait1 = 0xf4;
-   tim_wait2 = 0;
-   tim_wait3 = 0;
+   timer_cfg = 1;  // init
+   timer_del0 = 0x24;
+   timer_del1 = 0xf4;
+   timer_del2 = 0;
+   timer_del3 = 0;
    while (1) {
-       tim_cfg = 2; // start
-       while (tim_busy);
+       timer_cfg = 3; // start
+       while (timer_busy);
    }
 
 asdfasdf */
@@ -270,12 +267,13 @@ asdfasdf */
 
     port_cfg = 0x0; // make both io ports output
     port_a = 0x55;
-//    while (1) blink(9000,1000);
 
+    timer_start();
     while (1) {
-        for (int i=0; i<5; i++) morse("paris ");
-        tim_waitms(10000); // wait 10 seconds
+        for (int i=0; i<5; i++) morse("paris "); // send message 5 times
+        timer_delay_ms(10000); // wait 10 seconds between messages
     }
+    timer_stop();
 
 
     // ========================================================================
